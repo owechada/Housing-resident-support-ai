@@ -132,4 +132,4 @@
 
 <img src="img/admin1.png" width="500"> 
 
-<img src="img/admin2.PNG" width="500"> 
+<img src="img/admin2.png" width="500"> 
