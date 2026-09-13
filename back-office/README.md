@@ -51,11 +51,11 @@ the single path to a resident. Manager-only changes may write to Supabase direct
 3. Ticket detail at `/tickets/[reference]` — **done**
 4. Conversations at `/messages` and `/messages/[resident]` — **done**
 5. Summary at `/summary` — **done**
-6. Deploy to Vercel
+6. Knowledge base at `/knowledge` — **done**
+7. Deploy to Vercel
 
-Deliberately not built, and not to be stubbed in: knowledge base editing,
-settings, review queue, homeowner and demo roles, landing page, contractor
-assignment.
+Deliberately not built, and not to be stubbed in: settings, the review queue as
+its own screen, homeowner and demo roles, landing page, contractor assignment.
 
 ## Screens
 
@@ -66,3 +66,17 @@ assignment.
 | `/messages` | Everyone who has messaged the assistant, with a per-resident summary. Read-only. |
 | `/messages/[resident]` | One resident's thread and the tickets it produced. |
 | `/summary` | Whether the assistant is doing its job — completeness, self-resolution, how often you had to step in, and which details it keeps failing to capture. |
+| `/knowledge` | The answers the assistant gives without raising a ticket. Add, edit, switch off, delete. The manager's main lever over the system's behaviour. |
+
+## Knowledge base and the agent
+
+Adding an answer here is how a manager stops a recurring question becoming
+tickets — the agent's `search_knowledge_base` tool reads this table before it
+considers raising one.
+
+One caveat worth knowing: that tool filters on `estate_id` but **not** on
+`is_active`, so switching an entry off does not yet stop the agent using it.
+Add `is_active` = `eq.true` to the tool node's query parameters in the core
+workflow, then delete the amber setup note at the top of
+`app/(manager)/knowledge/page.tsx`. Until then, delete an answer you want the
+agent to stop giving.

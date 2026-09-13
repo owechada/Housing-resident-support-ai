@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 const NAV = [
   { href: "/", label: "Queue" },
   { href: "/messages", label: "Conversations" },
+  { href: "/knowledge", label: "Knowledge base" },
   { href: "/summary", label: "Summary" },
 ] as const;
 

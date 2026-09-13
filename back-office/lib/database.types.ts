@@ -139,6 +139,48 @@ export type ResidentRow = {
   created_at: string;
 };
 
+export type EstateRow = {
+  id: string;
+  name: string;
+  timezone: string;
+  created_at: string;
+};
+
+/**
+ * The knowledge base is the one table a manager writes freely. It holds estate
+ * policy — what the answer to a routine question is — rather than a record of
+ * something that happened, which is why it is editable and tickets are not.
+ *
+ * Note there is no created_at column, and no trigger maintaining updated_at, so
+ * every write sets it explicitly.
+ */
+export type KnowledgeBaseRow = {
+  id: string;
+  estate_id: string;
+  question: string;
+  answer: string;
+  category: string | null;
+  is_active: boolean;
+  updated_at: string;
+};
+
+export type KnowledgeBaseInsert = {
+  estate_id: string;
+  question: string;
+  answer: string;
+  category?: string | null;
+  is_active?: boolean;
+  updated_at?: string;
+};
+
+export type KnowledgeBaseUpdate = {
+  question?: string;
+  answer?: string;
+  category?: string | null;
+  is_active?: boolean;
+  updated_at?: string;
+};
+
 export type SelfResolutionRow = {
   id: number;
   estate_id: string | null;
@@ -213,6 +255,18 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      estates: {
+        Row: EstateRow;
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      knowledge_base: {
+        Row: KnowledgeBaseRow;
+        Insert: KnowledgeBaseInsert;
+        Update: KnowledgeBaseUpdate;
+        Relationships: [];
       };
       self_resolutions: {
         Row: SelfResolutionRow;

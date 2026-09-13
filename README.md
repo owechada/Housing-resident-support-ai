@@ -26,17 +26,17 @@ reply to dispute one, which reopens the ticket.
 
 ---
 
-## Try it
+## Try it out
 
 | WhatsApp | Telegram |
 |:--:|:--:|
 | <img src="docs/img/qr-whatsapp.png" width="180" alt="Chat on WhatsApp"> | <img src="docs/img/qr-telegram.png" width="180" alt="Chat on Telegram"> |
-| [wa.me](https://wa.me/REPLACE_NUMBER) | [t.me](https://t.me/REPLACE_BOT) |
+| [wa.me](https://wa.me/2349110574691?text=Hi) | [t.me](https://t.me/atlantizzz_bot) |
 
 Say something is broken and answer what it asks.
 
-- Web chat: `REPLACE_CHAT_URL`
-- Manager's view: `REPLACE_BACK_OFFICE_URL` — `REPLACE_DEMO_EMAIL` / `REPLACE_DEMO_PASSWORD`
+
+- Manager's view (Back-Office): `REPLACE_BACK_OFFICE_URL` 
 
 ---
 
