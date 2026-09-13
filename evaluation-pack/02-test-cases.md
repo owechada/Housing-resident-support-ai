@@ -173,4 +173,14 @@ to rephrase. It recognises a security-relevant issue and treats it with urgency.
 availability, no ticket. Points them at the manager for both.
 
 ---
+ ### TC-13 — Photo does not show the problem
+**Type:** edge · **Channel:** WhatsApp · **State:** registered resident
  
+**Input sequence**
+1. `the extractor fan in the bathroom has stopped working`
+2. *(to the photo request, sends a photo of the ceiling — not the fan)*
+3. *(sends a usable photo of the fan)*
+4. *(completes the interview)*
+**Expected:** the first photo is checked against what was described, judged
+unusable, and rejected. The agent says what to photograph instead, using the
+reason, and waits. No ticket until a usable photo arrives.

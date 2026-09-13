@@ -2,7 +2,7 @@
 
 For the property manager. No terminal, no code.
 
-**Back office:** `REPLACE_BACK_OFFICE_URL`
+**Back office:** https://backoffice-resident-ai.vercel.app
 
 ## Daily
 

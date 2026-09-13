@@ -3,88 +3,73 @@
   "nodes": [
     {
       "parameters": {
-        "inputSource": "workflowInputs",
         "workflowInputs": {
           "values": [
             {
-              "name": "estate_id",
-              "type": "string"
+              "name": "estate_id"
             },
             {
-              "name": "unit_id",
-              "type": "string"
+              "name": "unit_id"
             },
             {
-              "name": "resident_id",
-              "type": "string"
+              "name": "resident_id"
             },
             {
-              "name": "channel",
-              "type": "string"
+              "name": "channel"
             },
             {
-              "name": "category",
-              "type": "string"
+              "name": "category"
             },
             {
-              "name": "urgency",
-              "type": "string"
+              "name": "urgency"
             },
             {
-              "name": "location_in_unit",
-              "type": "string"
+              "name": "location_in_unit"
             },
             {
-              "name": "description",
-              "type": "string"
+              "name": "description"
             },
             {
-              "name": "onset",
-              "type": "string"
+              "name": "onset"
             },
             {
-              "name": "access_window",
-              "type": "string"
+              "name": "access_window"
             },
             {
-              "name": "safety_flag",
-              "type": "string"
+              "name": "safety_flag"
             },
             {
-              "name": "photo_status",
-              "type": "string"
+              "name": "photo_status"
             },
             {
-              "name": "photo_url",
-              "type": "string"
+              "name": "photo_url"
             },
             {
-              "name": "confidence",
-              "type": "string"
+              "name": "confidence"
             }
           ]
         }
       },
-      "id": "cca079cd-4a1c-468b-a86c-0b5860628655",
+      "id": "d9d3fd03-b74a-4c2f-91d3-7257aaabf763",
       "name": "When Called by Agent",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
-        0,
-        0
+        6304,
+        1152
       ]
     },
     {
       "parameters": {
         "jsCode": "// Build the ticket record. This is the only place a ticket is created.\nconst inp = $input.first().json;\n\nconst pad = (n) => String(n).padStart(4, '0');\nconst rand = Math.floor(Math.random() * 10000);\nconst d = new Date();\nconst stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;\nconst reference = `RSA-${stamp}-${pad(rand)}`;\n\nconst CATEGORIES = ['plumbing','electrical','appliance','structural','damp_mould',\n                    'pest','cleaning','security','internet','other'];\nconst URGENCIES  = ['emergency','high','normal','low'];\nconst PHOTO      = ['provided','refused','none'];\n\n// The agent fills these through $fromAI, so they arrive as strings and can be\n// '', 'null' or 'undefined'. Postgres rejects those for a uuid column with a\n// 400, which is opaque by the time n8n reports it. Normalise here.\nconst uuid = (v) => {\n  const s = (v ?? '').toString().trim();\n  if (!s || s === 'null' || s === 'undefined') return null;\n  return /^[0-9a-f-]{36}$/i.test(s) ? s : null;\n};\nconst str = (v) => {\n  const s = (v ?? '').toString().trim();\n  return s && s !== 'null' && s !== 'undefined' ? s : null;\n};\nconst num = (v) => {\n  const f = parseFloat(v);\n  return Number.isFinite(f) ? f : null;\n};\n\nconst estate_id   = uuid(inp.estate_id);\nconst unit_id     = uuid(inp.unit_id);\nconst resident_id = uuid(inp.resident_id);\n\n// unit_id and estate_id are NOT NULL in the schema. Failing here with a clear\n// message beats a 400 from PostgREST that says nothing useful.\nif (!estate_id || !unit_id) {\n  throw new Error(\n    `Cannot create ticket: estate_id or unit_id missing. ` +\n    `Got estate_id=\"${inp.estate_id}\", unit_id=\"${inp.unit_id}\". ` +\n    `If the resident is unregistered, register_resident must be called first ` +\n    `and its unit_id passed through.`\n  );\n}\n\nconst category = CATEGORIES.includes(inp.category) ? inp.category : 'other';\nconst urgency  = URGENCIES.includes(inp.urgency)   ? inp.urgency  : 'normal';\nconst photo_status = PHOTO.includes(inp.photo_status) ? inp.photo_status : 'none';\n\nconst required = ['category','location_in_unit','description','onset','access_window'];\nconst missing = required.filter(k => !str(inp[k]));\nconst isEmergency = urgency === 'emergency' || inp.safety_flag === true\n                    || inp.safety_flag === 'true';\n\nconst confidence = num(inp.confidence);\n\n// A ticket whose photo was never accepted or explicitly refused goes to\n// review, not the main queue. This is the database-side half of the photo\n// rule: the prompt can drift, this cannot.\nconst photoUnresolved = !['provided','refused'].includes(photo_status);\n\nconst needsReview =\n  (missing.length > 0 && !isEmergency) ||\n  (photoUnresolved && !isEmergency) ||\n  (confidence !== null && confidence < 0.7) ||\n  (!CATEGORIES.includes(inp.category));\n\nreturn [{\n  json: {\n    reference,\n    estate_id,\n    unit_id,\n    resident_id,\n    channel: str(inp.channel) ?? 'whatsapp',\n    category,\n    urgency,\n    location_in_unit: str(inp.location_in_unit),\n    description: str(inp.description),\n    onset: str(inp.onset),\n    access_window: str(inp.access_window),\n    safety_flag: inp.safety_flag === true || inp.safety_flag === 'true',\n    photo_status,\n    photo_url: str(inp.photo_url),\n    confidence,\n    status: needsReview ? 'needs_review' : 'open',\n    review_reason: needsReview\n      ? (missing.length ? `missing_fields:${missing.join(',')}`\n         : photoUnresolved ? 'photo_mismatch'\n         : 'low_confidence')\n      : null,\n    missing_fields: missing,\n    created_by: 'agent',\n  }\n}];"
       },
-      "id": "6c71261f-76f5-4f54-aa5d-1e9af638bf54",
+      "id": "20f3c4a4-cf5a-4ee5-a8df-d9aa4190e526",
       "name": "Build Ticket",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        224,
-        0
+        6528,
+        1152
       ]
     },
     {
@@ -118,23 +103,23 @@
           }
         }
       },
-      "id": "73bd57cd-256a-4dab-b211-aa6555763e63",
+      "id": "7a1e1a00-593f-4e9f-9bfd-b93b8f29fc4c",
       "name": "Insert Ticket",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        448,
-        0
+        6752,
+        1152
       ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "credentials": {
         "supabaseApi": {
           "id": "dplSIfnzUxAIXt0r",
           "name": "Supabase account"
         }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
+      }
     },
     {
       "parameters": {
@@ -147,25 +132,25 @@
         "jsonBody": "={{ JSON.stringify({ ticket_reference: $('Build Ticket').first().json.reference, actor_type: 'agent', actor_id: 'resident-support-ai', event_type: 'created', detail: { status: $('Build Ticket').first().json.status, review_reason: $('Build Ticket').first().json.review_reason, missing_fields: $('Build Ticket').first().json.missing_fields, confidence: $('Build Ticket').first().json.confidence, channel: $('Build Ticket').first().json.channel } }) }}",
         "options": {}
       },
-      "id": "6e29fa7c-af73-49cf-afc5-604fd74aff08",
+      "id": "9cbe3278-4c37-4662-bfc2-674d7653faea",
       "name": "Log Ticket Event",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        672,
-        0
+        6976,
+        1152
       ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "alwaysOutputData": true,
       "credentials": {
         "httpHeaderAuth": {
           "id": "AXe1PYJEGYh2vukY",
           "name": "Header Auth account 3"
         }
       },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
-      "onError": "continueRegularOutput",
-      "alwaysOutputData": true
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -175,26 +160,26 @@
         "html": "=<h2>New {{ $('Build Ticket').first().json.urgency === 'emergency' ? 'EMERGENCY' : '' }} ticket {{ $('Build Ticket').first().json.reference }}</h2>\n<table cellpadding=\"6\" style=\"border-collapse:collapse;font-family:sans-serif;font-size:14px\">\n<tr><td><b>Unit</b></td><td>{{ $('Build Ticket').first().json.unit_id }}</td></tr>\n<tr><td><b>Category</b></td><td>{{ $('Build Ticket').first().json.category }}</td></tr>\n<tr><td><b>Urgency</b></td><td>{{ $('Build Ticket').first().json.urgency }}</td></tr>\n<tr><td><b>Status</b></td><td>{{ $('Build Ticket').first().json.status }}</td></tr>\n<tr><td><b>Where</b></td><td>{{ $('Build Ticket').first().json.location_in_unit }}</td></tr>\n<tr><td><b>Problem</b></td><td>{{ $('Build Ticket').first().json.description }}</td></tr>\n<tr><td><b>Started</b></td><td>{{ $('Build Ticket').first().json.onset }}</td></tr>\n<tr><td><b>Access</b></td><td>{{ $('Build Ticket').first().json.access_window }}</td></tr>\n<tr><td><b>Safety flag</b></td><td>{{ $('Build Ticket').first().json.safety_flag ? 'YES' : 'no' }}</td></tr>\n<tr><td><b>Photo</b></td><td>{{ $('Build Ticket').first().json.photo_url ? $('Build Ticket').first().json.photo_url : $('Build Ticket').first().json.photo_status }}</td></tr>\n<tr><td><b>Channel</b></td><td>{{ $('Build Ticket').first().json.channel }}</td></tr>\n<tr><td><b>Confidence</b></td><td>{{ $('Build Ticket').first().json.confidence }}</td></tr>\n</table>\n<p><a href=\"https://REPLACE-back-office.vercel.app/tickets/{{ $('Build Ticket').first().json.reference }}\">Open in back office</a></p>\n<p style=\"color:#888;font-size:12px\">Logged automatically by Resident Support AI. Only a human can close this ticket.</p>",
         "options": {}
       },
-      "id": "2d397899-3153-4672-8d8e-1311de799b4d",
+      "id": "9cab8970-7f9e-4a09-9746-23f3fb7c3ae2",
       "name": "Email Manager",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        880,
-        0
+        7184,
+        1152
       ],
       "webhookId": "a23b1a96-9d06-429a-89c7-7c1253080cae",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "alwaysOutputData": true,
       "credentials": {
         "smtp": {
           "id": "6Q6ZLskjiNYpiWyt",
           "name": "SMTP account"
         }
       },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
-      "onError": "continueRegularOutput",
-      "alwaysOutputData": true
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -222,26 +207,26 @@
         },
         "options": {}
       },
-      "id": "30cea25b-5a3e-45fd-9401-588e96ce31b9",
+      "id": "54ab0f6d-3c96-4849-a240-ea664fb10297",
       "name": "Return to Agent",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1104,
-        0
+        7408,
+        1152
       ]
     },
     {
       "parameters": {
         "jsCode": "// Surface the real PostgREST error instead of n8n's generic \"Bad request\".\nconst r = $input.first().json;\nif (r.statusCode >= 400) {\n  const b = r.body;\n  throw new Error(`Supabase rejected the ticket (${r.statusCode}): ` +\n    (typeof b === 'string' ? b : JSON.stringify(b)));\n}\nreturn [{ json: Array.isArray(r.body) ? r.body[0] : r.body }];"
       },
-      "id": "check-insert",
+      "id": "0670fb31-8cc2-4353-8b56-01b210832a16",
       "name": "Check Insert",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        560,
-        0
+        6864,
+        1152
       ]
     }
   ],
@@ -320,7 +305,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "575bcc5c-5a33-467a-abc6-8ed8bc13c5d0",
+  "versionId": "a0496f61-9a46-4461-9efb-c7819b0c9c42",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "a0c06549d153afe2a900cc76ee6cc621af965adffffc11bb8c75c33481e57650"

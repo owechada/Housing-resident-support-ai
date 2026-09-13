@@ -36,7 +36,10 @@ reply to dispute one, which reopens the ticket.
 Say something is broken and answer what it asks.
 
 
-- Manager's view (Back-Office): `REPLACE_BACK_OFFICE_URL` 
+- Manager's view (Back-Office): https://backoffice-resident-ai.vercel.app — opens straight into the queue, auto sign-in - demo
+
+
+<img src="docs/img/back-office.png" width="500">
 
 ---
 
@@ -61,14 +64,7 @@ Too dark, too far, or wrong subject is rejected and another asked for.
 
 ## Architecture
 
-```
-WhatsApp ─┐
-Telegram ─┼─→ adapter ─→ settings ─→ identity ─→ [photo] ─→ agent ─→ reply
-Web chat ─┘                                                  │
-                                                             ├─→ knowledge base
-                                                             ├─→ create ticket → alert
-                                                             └─→ self-resolution
-```
+<img src="docs/img/architecture.png" width="500">
 
 Each adapter normalises to one envelope: `{ channel, channel_user_id, text,
 media[], timestamp }`. Nothing downstream knows the channel. Adding Telegram
@@ -80,7 +76,7 @@ took one adapter and one send node.
 | Agent | OpenAI, Postgres-backed conversation memory |
 | Vision | GPT-4o, usable/reject verdict per photo |
 | Data | Supabase — Postgres, storage, auth, RLS |
-| Back office | Single-page app on Supabase |
+| Back office | Simple web ui for manager to miror Supabase |
 
 ---
 
@@ -89,12 +85,11 @@ took one adapter and one send node.
 **1. Database.** In the Supabase SQL editor, nothing highlighted, run in order:
 
 ```
-db/schema.sql     tables, human-close trigger, register_resident()
-db/seed.sql       estate, units, residents, 15 knowledge base entries
-eval/reset.sql    test isolation helpers
+db/schema.sql   --  tables, human-close trigger, register_resident()
+db/seed.sql   --  estate, units, residents, 15 knowledge base entries
 ```
 
-Create a public storage bucket named `ticket-photos`.
+Run and create a public storage bucket named `ticket-photos` on supabase project.
 
 **2. Workflows.** Import sub-workflow first:
 
@@ -108,9 +103,7 @@ Postgres (pooler, **port 6543**), SMTP. Set your values in the **Settings**
 node — every environment value lives there. Activate both, then point the
 WhatsApp webhook at the trigger's production URL.
 
-**3. Back office.** Set your Supabase URL and anon key in
-`back-office/config.js`, deploy as static files, run `db/rls.sql`. The anon key
-is public; RLS is what protects resident data.
+**3. Back office.** add the .env variable from the env.example
 
 **Verify:** message the bot, report a leaking tap, send a photo. A ticket
 appears in the back office within seconds.

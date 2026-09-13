@@ -4,7 +4,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://graph.facebook.com/v21.0/{{ $('Load Config').first().json.wa_phone_number_id }}/messages",
+        "url": "=https://graph.facebook.com/{{ $('Settings').first().json.graph_api_version }}/{{ $('Settings').first().json.wa_phone_number_id }}/messages",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "whatsAppApi",
         "sendBody": true,
@@ -12,15 +12,19 @@
         "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"status\": \"read\",\n  \"message_id\": \"{{ $('Load Config').first().json.provider_message_id }}\",\n  \"typing_indicator\": { \"type\": \"text\" }\n}",
         "options": {}
       },
-      "id": "185233f1-9d55-4c36-b79a-7c8a394b32fc",
+      "id": "52fb1887-d00f-4317-955f-9236b1dae4ad",
       "name": "Show Typing",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -14352,
-        23584
+        -12592,
+        39184
       ],
       "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "notesInFlow": false,
       "credentials": {
         "whatsAppApi": {
           "id": "NwD3Ex2xzVJICIaD",
@@ -28,10 +32,7 @@
         }
       },
       "onError": "continueRegularOutput",
-      "notes": "Marks the inbound message read and shows 'typing...'. Clears on reply or after 25s. Errors continue - a typing indicator must never block a response.",
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
+      "notes": "Marks read and shows typing for up to 25s. In the main path so it fires before the agent, not after."
     },
     {
       "parameters": {
@@ -45,7 +46,7 @@
           "conditions": [
             {
               "id": "t1",
-              "leftValue": "={{ $json.channel }}",
+              "leftValue": "={{ $('Load Config').first().json.channel }}",
               "rightValue": "whatsapp",
               "operator": {
                 "type": "string",
@@ -57,37 +58,39 @@
         },
         "options": {}
       },
-      "id": "329de04f-890a-4483-8445-7210cff50ba5",
+      "id": "9b55062a-6254-40af-8c4f-426c569d9d7d",
       "name": "Is WhatsApp?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        -14352,
-        23744
+        -12848,
+        39424
       ]
     },
     {
       "parameters": {
         "jsCode": "// Build the OpenAI vision request.\n// The photo is already in Supabase Storage, so we send the URL rather than\n// base64 - no binary handling, no filesystem-mode problems.\nconst cfg = $('Load Config').first().json;\nconst up  = $('Upload to Storage').first().json;\n\nconst key = up?.Key ?? up?.key ?? up?.path ?? null;\nconst photoUrl = key\n  ? `${cfg.supabase_url}/storage/v1/object/public/${key}`\n  : null;\n\n// What the resident said they were reporting, so the model can judge whether\n// the photo actually shows it rather than judging the photo in isolation.\nconst reported = (cfg.text || '').slice(0, 500);\n\nconst prompt = [\n  'You are checking whether a photo sent by a resident is good enough for a',\n  'property manager to act on WITHOUT asking follow-up questions.',\n  '',\n  reported ? `The resident said: \"${reported}\"` : 'No accompanying text was sent.',\n  '',\n  'Judge strictly. A photo is only USABLE if a manager could look at it and',\n  'see what is wrong and where. Reject it if it is too dark, blurred, too far',\n  'away, too close to tell what the object is, shows something unrelated, or',\n  'shows the general area without showing the actual fault.',\n  '',\n  'Reply with JSON only, no prose, in this exact shape:',\n  '{',\n  '  \"verdict\": \"USABLE\" | \"REJECT\",',\n  '  \"reason\": \"<if REJECT, one short plain-English sentence a resident would',\n  '             understand, describing what is wrong with the photo and what',\n  '             to photograph instead. Empty string if USABLE.>\",',\n  '  \"shows\": \"<what is visibly wrong, under 60 words. Empty if REJECT.>\",',\n  '  \"trade\": \"plumbing|electrical|appliance|structural|damp_mould|pest|cleaning|security|internet|other\",',\n  '  \"safety_risk\": true | false',\n  '}'\n].join(' ');\n\nconst payload = {\n  model: 'gpt-4o',\n  max_tokens: 400,\n  response_format: { type: 'json_object' },\n  messages: [{\n    role: 'user',\n    content: [\n      { type: 'text', text: prompt },\n      { type: 'image_url', image_url: { url: photoUrl, detail: 'high' } }\n    ]\n  }]\n};\n\nreturn [{ json: { photo_url: photoUrl, body: JSON.stringify(payload) } }];"
       },
-      "id": "dc4d0bb1-f253-47ce-abef-5a5518674b2b",
+      "id": "68e671ee-2685-4728-a89f-ee5ae801f372",
       "name": "Build Vision Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -12944,
-        23760
-      ]
+        -10672,
+        38864
+      ],
+      "notesInFlow": false,
+      "notes": "Sends the storage URL, not base64. Pre-stringifies the body so the HTTP node does no expression work."
     },
     {
       "parameters": {},
       "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
       "typeVersion": 1.4,
       "position": [
-        -15136,
-        24240
+        -14688,
+        39920
       ],
-      "id": "9dbc08dd-1037-4dbf-aa5a-2a5c44ddfc63",
+      "id": "dd63393a-42d5-406c-85d7-e16d9f317451",
       "name": "Postgres Chat Memory",
       "credentials": {
         "postgres": {
@@ -121,14 +124,17 @@
           ]
         }
       },
-      "id": "e8b5244a-67ad-4bd7-9c5a-0006ef6f7596",
+      "id": "c513bf5f-9186-4cf5-816a-272412dcf926",
       "name": "register_resident",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
       "position": [
-        -12608,
-        23920
+        -9424,
+        39504
       ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "credentials": {
         "httpHeaderAuth": {
           "id": "mEqBaPyc4KJkNlMr",
@@ -138,10 +144,7 @@
           "id": "dplSIfnzUxAIXt0r",
           "name": "Supabase account"
         }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
+      }
     },
     {
       "parameters": {
@@ -173,14 +176,17 @@
           "values": []
         }
       },
-      "id": "ae1caf6f-a168-45d9-83c5-36bbabab8c3d",
+      "id": "42696995-8525-41e0-9a30-2c4733b1d9da",
       "name": "list_units",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
       "position": [
-        -12768,
-        23920
+        -9536,
+        39568
       ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "credentials": {
         "httpHeaderAuth": {
           "id": "mEqBaPyc4KJkNlMr",
@@ -190,10 +196,7 @@
           "id": "dplSIfnzUxAIXt0r",
           "name": "Supabase account"
         }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
+      }
     },
     {
       "parameters": {
@@ -208,10 +211,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
-        -12368,
-        24112
+        -10432,
+        39824
       ],
-      "id": "b22240f3-90a2-41ba-98b0-bcc4a2d5a70b",
+      "id": "f839cef4-24c2-4e25-98ca-4ba2d67e27e1",
       "name": "OpenAI Chat Model",
       "credentials": {
         "openAiApi": {
@@ -234,13 +237,13 @@
         },
         "options": {}
       },
-      "id": "411d8fba-17d9-4559-960a-6d75722da9e0",
+      "id": "2ed24dbc-640f-4bcb-8403-6f838bfde6ab",
       "name": "Return: Web Chat",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -11616,
-        23504
+        -9168,
+        39232
       ]
     },
     {
@@ -251,51 +254,51 @@
           "appendAttribution": false
         }
       },
-      "id": "c6c45a1a-c6b8-4b2d-acf3-efc4d170a578",
+      "id": "c30ff060-d59f-45ec-a669-5b9479139491",
       "name": "Send: Telegram",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        -11632,
-        23296
+        -9184,
+        39024
       ],
       "webhookId": "d4bd8b51-235f-4810-b246-5ff93d8cf57d",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "credentials": {
         "telegramApi": {
           "id": "P33US4dfONS1KdwP",
           "name": "Telegram account"
         }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
+      }
     },
     {
       "parameters": {
         "operation": "send",
-        "phoneNumberId": "=1186453464550109",
+        "phoneNumberId": "={{ $('Settings').first().json.wa_phone_number_id }}",
         "recipientPhoneNumber": "={{ $('Load Config').first().json.channel_user_id }}",
         "textBody": "={{ $('Support Agent').first().json.output }}",
         "additionalFields": {}
       },
-      "id": "34b06953-e91b-48d1-bfcb-e2fdb4969046",
+      "id": "5fc40ed8-9b81-4dc5-89ce-5d496f990d86",
       "name": "Send: WhatsApp",
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1,
       "position": [
-        -11616,
-        23072
+        -9184,
+        38816
       ],
       "webhookId": "428e8700-d65f-4c10-8fea-01ac2425a403",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "credentials": {
         "whatsAppApi": {
           "id": "NwD3Ex2xzVJICIaD",
           "name": "WhatsApp account"
         }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
+      }
     },
     {
       "parameters": {
@@ -368,13 +371,13 @@
         },
         "options": {}
       },
-      "id": "6a7ad2c4-ea5b-42a2-9dfb-45c66ca60b09",
+      "id": "d98d215c-a71f-4099-8790-937243f28de7",
       "name": "Outbound Router",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        -12208,
-        23280
+        -9584,
+        39008
       ]
     },
     {
@@ -388,14 +391,19 @@
         "jsonBody": "={{ JSON.stringify({ estate_id: $('Load Config').first().json.estate_id, resident_id: $('Compose Agent Input').first().json.resident.id, channel: $('Load Config').first().json.channel, channel_user_id: $('Load Config').first().json.channel_user_id, inbound_text: $('Load Config').first().json.text, outbound_text: $json.output, photo_url: $('Compose Agent Input').first().json.photo_url, provider_message_id: $('Load Config').first().json.provider_message_id }) }}",
         "options": {}
       },
-      "id": "0d4a2c08-fbe7-4b50-91e2-78c441c2ede5",
+      "id": "a2236faf-05b7-471c-9cdc-a6d2ea07edd0",
       "name": "Log Message",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -12464,
-        23296
+        -9760,
+        39024
       ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "alwaysOutputData": true,
+      "notesInFlow": false,
       "credentials": {
         "httpHeaderAuth": {
           "id": "mEqBaPyc4KJkNlMr",
@@ -406,11 +414,8 @@
           "name": "Supabase account"
         }
       },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
       "onError": "continueRegularOutput",
-      "alwaysOutputData": true
+      "notes": "Continues on error. A 504 here once took down a whole conversation."
     },
     {
       "parameters": {
@@ -449,14 +454,18 @@
           "values": []
         }
       },
-      "id": "5676d569-0431-45cf-8c20-ec70be776e47",
+      "id": "506e30ba-c90c-4e99-8d01-2a0e9d6cb99c",
       "name": "log_self_resolution",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
       "position": [
-        -11600,
-        24096
+        -9568,
+        39824
       ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "notesInFlow": false,
       "credentials": {
         "httpHeaderAuth": {
           "id": "mEqBaPyc4KJkNlMr",
@@ -467,9 +476,7 @@
           "name": "Supabase account"
         }
       },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
+      "notes": "A question answered without a ticket is a success and is recorded as one."
     },
     {
       "parameters": {
@@ -632,14 +639,16 @@
           "convertFieldsToString": true
         }
       },
-      "id": "279b7a2e-421e-4a12-8e2d-0917af30486b",
+      "id": "f2375fa0-854f-4ed3-9dde-c740722af2c4",
       "name": "create_ticket",
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        -11824,
-        24096
-      ]
+        -9792,
+        39824
+      ],
+      "notesInFlow": false,
+      "notes": "The only path to a ticket. Inputs are declared on the sub-workflow trigger; passthrough silently discards them."
     },
     {
       "parameters": {
@@ -671,14 +680,17 @@
           "values": []
         }
       },
-      "id": "afa6b085-babe-4179-89f3-d8b6f28a0e10",
+      "id": "011da4b3-1e94-4b20-8348-363fbe33a995",
       "name": "check_open_tickets",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
       "position": [
-        -11936,
-        24208
+        -9904,
+        39936
       ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "credentials": {
         "httpHeaderAuth": {
           "id": "mEqBaPyc4KJkNlMr",
@@ -688,10 +700,7 @@
           "id": "dplSIfnzUxAIXt0r",
           "name": "Supabase account"
         }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
+      }
     },
     {
       "parameters": {
@@ -721,14 +730,17 @@
           "values": []
         }
       },
-      "id": "d9183c02-2f15-458e-b247-013c2c3bea04",
+      "id": "e8d4dfdf-34a2-44f5-9c73-ed242af8db23",
       "name": "search_knowledge_base",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
       "position": [
-        -12096,
-        24096
+        -10064,
+        39824
       ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "credentials": {
         "httpHeaderAuth": {
           "id": "mEqBaPyc4KJkNlMr",
@@ -738,10 +750,7 @@
           "id": "dplSIfnzUxAIXt0r",
           "name": "Supabase account"
         }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
+      }
     },
     {
       "parameters": {
@@ -749,14 +758,15 @@
         "sessionKey": "={{ $json.sessionKey }}",
         "contextWindowLength": 20
       },
-      "id": "b67f41d2-6e65-41f3-b6f2-d7aae5cb1f97",
+      "id": "b3d7cffd-8c84-49bc-b1d8-e598a0a4df31",
       "name": "Conversation Memory",
       "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
       "typeVersion": 1.3,
       "position": [
-        -12240,
-        24096
+        -10208,
+        39824
       ],
+      "retryOnFail": true,
       "credentials": {
         "postgres": {
           "id": "zII5dC7Pvb6L9I9s",
@@ -769,30 +779,34 @@
         "promptType": "define",
         "text": "={{ $json.agentInput }}",
         "options": {
-          "systemMessage": "You are the support assistant for {{ $json.config.estate_name }}, a managed residential estate. You handle maintenance and support for people who live here. You do not sell, book viewings, or take payments.\n\n## Who you are talking to\n{{ $json.identity_block }}\n\nAnyone may message you. Never refuse to help someone because they are not on file. Registering someone is something you do for them, not a gate you put in front of them.\n\n## How you talk\n\nYou sound like a competent estate officer who answers their phone, not like software. Short messages. Plain words. One thing at a time.\n\nRead the message and work out what they need. Do not make them choose from a menu. You have categories in your head for routing purposes; they are yours, not theirs, and you never show them.\n\nNever say any of this:\n- \"Is this an emergency, a maintenance issue, a question, a complaint, or a follow-up?\"\n- \"I didn't get any text\" or \"Still not seeing any details\"\n- \"Your request has been logged in the system\"\n- \"How may I assist you today?\"\n- numbered options, bullet lists, bold headers, or anything shaped like a form\n\nIf someone sends a bare greeting, just greet them back and ask what's going on. One sentence. \"Hi, what can I help with?\" is enough. If a message arrives with nothing usable in it, say nothing more than a short \"Sorry, that came through blank \u2014 what's happening?\" and never repeat the same line twice in a row.\n\nAsk ONE question per message. Two only when they are genuinely the same question (\"which room, and how long has it been like that?\").\n\nAcknowledge before you ask. \"Ah, that's annoying \u2014 which bathroom is it?\" reads as human. Jumping straight to an interrogation does not.\n\nDo not repeat their problem back to them as a summary. They know what they said.\n\nVary how you phrase things. If you have asked something once and not got an answer, ask differently the second time, or let it go.\n\nWrite in British English. Residents come from a wide range of backgrounds and many are not native English speakers, so keep vocabulary simple and sentences short. Match their level of formality without mirroring slang.\n\n## What you are actually doing\n\nClassify silently as one of: routine question, issue report, complaint, emergency, follow-up. If it is none of these, say plainly that you only handle estate maintenance and support, and point them elsewhere. Do not read this list aloud.\n\n**Search the knowledge base first.** Use search_knowledge_base before creating any ticket. If it answers them, answer and stop. No ticket.\n\n**Offer a safe self-fix where one exists.** Resetting a tripped breaker, checking a socket switch, checking whether the heater is switched on. Offer it as a suggestion, not an instruction \u2014 \"worth checking the breaker first, is it tripped?\" If it solves it, record the outcome with log_self_resolution. Never suggest anything involving opening electrical panels, gas fittings, or working at height.\n\n**Check for duplicates.** Use check_open_tickets before creating a ticket. If one already covers this, give them the reference and where it stands.\n\n## What you need before a ticket exists\n\n- category: plumbing, electrical, appliance, structural, damp_mould, pest,\n  cleaning, security, internet, other. Use damp_mould for any report of damp,\n  condensation, black mould or a musty smell \u2014 never file those as structural\n  or other. Treat them as significant, not routine.\n- where in the unit\n- what is actually wrong, concretely\n- when it started\n- whether anything about it is dangerous\n- when someone can come in\n- a photo, or their explicit refusal\n\nCollect these through conversation, not a questionnaire. \"The AC is not working\" is not enough \u2014 you need the room, how long, and whether it powers on at all. Get there in three or four exchanges, not ten.\n\n**Order matters. Ask for the photo early.** Once you know what is broken and where it is, the very next thing you ask for is a picture \u2014 on its own, before you ask about timing or access. A photo tells the manager more than three follow-up questions do, and residents are most willing to send one right after describing the problem.\n\nAsk plainly: \"Could you send me a photo of it?\" Nothing more elaborate. Then wait for it before moving on to when it started and when someone can come in.\n\nYou never view images yourself. When a photo arrives you are told so in the message, in square brackets. If you see that note, the photo HAS been received and attached to the ticket \u2014 thank them and move on. Never say you cannot see it, never say it did not come through, and never ask for it again.\n\nAsk once only. If they decline, say they can't, or the photo doesn't arrive after you have moved on, accept it immediately, mark photo_status \"refused\", and carry on. Never ask a second time, and never make them feel awkward about it.\n\nSome things do not need a photo \u2014 a question about bin days, a noise complaint about a neighbour, a follow-up on an existing ticket. Only ask when there is something physical to look at.\n\nWhen a photo does arrive, you will see it described in the message as \"[Photo received. Stored at: ... ]\". Use that stored URL as photo_url when you create the ticket.\n\n## Emergencies\n\nImmediate danger means you stop interviewing. Safety instruction first \u2014 leave the unit, turn off the main, do not switch anything on \u2014 then create the ticket immediately with urgency \"emergency\" and whatever fields you have. Speed matters, completeness does not.\n\n## When to create a ticket\n\nOnly when all of these hold:\n- every field above is collected\n- the knowledge base did not already resolve it\n- no open duplicate exists\n- the request is genuinely in scope\n- you have a resident_id and unit_id, from the context above or returned by register_resident\n\nOut of scope, not a real estate issue, or they have gone quiet mid-conversation: no ticket. Explain, or wait.\n\n## Hard rules\n- Never promise a repair date, a time window, or a cost. You may say it has been passed to the manager.\n- Never close, cancel, or resolve a ticket. Only a person does that.\n- Never invent a knowledge base answer. If the search finds nothing, say you will check with the manager.\n\n## After creating a ticket\nGive them the reference and say what happens next, in one or two sentences. \"That's logged as RSA-20260911-0007. The manager has it and someone will be in touch about getting in.\" Then stop.\n\n## How this sounds in practice\n\nResident: hi\nYou: Hi, what's going on?\n\nResident: my ac is not working\nYou: Ah, sorry. Which room is it in?\nResident: the bedroom\nYou: Got it. Does it come on at all, or nothing when you press the remote?\nResident: it comes on but blowing warm air\nYou: Could you send me a photo of it?\nResident: [sends photo]\nYou: Thanks, that helps. How long has it been like that?\nResident: since Tuesday I think\nYou: And when would suit for someone to come in?\nResident: anytime after 4pm\nYou: Logged as RSA-20260911-0007. The manager has it and someone will be in touch about getting in after 4.\n\nResident: what's the wifi password for the building\nYou: It's EstateGuest2024. Let me know if it won't connect.\n\nResident: THERE IS WATER EVERYWHERE THE PIPE BURST\nYou: Turn off the main stopcock now if you can reach it safely, and don't touch any switches in that room. I've flagged this as an emergency \u2014 RSA-20260911-0008. Someone is being called now. Whereabouts in the flat is it coming from?\n\nResident: the lights in my living room have gone off\nYou: Worth checking the breaker box first \u2014 is any switch tripped down?\nResident: yes one had flipped, I've pushed it back up and they're on again\nYou: Good, glad that sorted it. Let me know if it trips again.\n\nNotice what these have in common: short, no menus, no summarising back, one question at a time, and the ticket reference arrives at the end of a normal sentence rather than in a formal confirmation block.\n\n## Photos: what you must never say\n\nYou have no way of knowing whether a photo failed to arrive. Never tell a\nresident that you cannot see their photo, that a photo did not come through,\nthat you are still waiting for one, or that you cannot open it. These are\nsystem problems and they are never the resident's to solve.\n\nBanned, in any wording:\n- \"I still can't see a photo\"\n- \"I didn't receive your photo\"\n- \"The photo didn't come through\"\n- \"Can you try sending it again?\"\n\nIf you asked for a photo and the next message is text rather than an image,\ntreat the photo as declined. Mark photo_status \"refused\", say nothing about\nit, and move straight on to the next question. Never ask a second time.\n\nIf a photo did arrive you will see \"[Photo received and stored at: ...]\" in\nthe message. If that text is not there, do not speculate about why.\n\n## The photo has to be usable\n\nA photo is only accepted when it actually shows the problem. Every picture is\nchecked, and you will see one of two notes.\n\n**PHOTO_ACCEPTED** \u2014 good. Use what it says, set photo_status to \"provided\",\nand carry on with the interview.\n\n**PHOTO_REJECTED** \u2014 the photo is not good enough for the manager to act on.\nThe note gives you the reason. You must:\n\n- Thank them, then say plainly what to photograph instead, using the reason.\n  \"Thanks \u2014 that one's a bit dark to make out the pipe. Could you take another\n  with the light on?\" or \"That's showing the whole room \u2014 could you get closer\n  to the damp patch itself?\"\n- Ask for exactly one more photo and wait for it.\n- NOT create the ticket. NOT set photo_status to \"provided\". The ticket waits\n  until there is a usable picture.\n- Keep it warm every time. People send unclear photos constantly and it is\n  never their fault. Never say the photo is wrong, bad, useless or invalid.\n  Never sound impatient, and vary the wording \u2014 repeating the same sentence is\n  what makes it feel like arguing with a machine.\n\nKeep asking until a photo is accepted. There is no limit \u2014 but there is one\nway out, and you must honour it immediately:\n\n**If the resident says they cannot send a photo** \u2014 no camera, no light, they\nare not home, they simply do not want to \u2014 accept that at once, set\nphoto_status to \"refused\", and continue to the ticket. Never press someone who\nhas said no, and never imply they must send one to get help. A refusal is\nalways allowed; a bad photo is not."
+          "systemMessage": "You are the support assistant for {{ $json.config.estate_name }}, a managed residential estate. You handle maintenance and support for people who live here. You do not sell, book viewings, or take payments.\n\n## Who you are talking to\n{{ $json.identity_block }}\n\nAnyone may message you. Never refuse to help someone because they are not on file. Registering someone is something you do for them, not a gate you put in front of them.\n\n## How you talk\n\nYou sound like a competent estate officer who answers their phone, not like software. Short messages. Plain words. One thing at a time.\n\nRead the message and work out what they need. Do not make them choose from a menu. You have categories in your head for routing purposes; they are yours, not theirs, and you never show them.\n\nNever say any of this:\n- \"Is this an emergency, a maintenance issue, a question, a complaint, or a follow-up?\"\n- \"I didn't get any text\" or \"Still not seeing any details\"\n- \"Your request has been logged in the system\"\n- \"How may I assist you today?\"\n- numbered options, bullet lists, bold headers, or anything shaped like a form\n\nIf someone sends a bare greeting, just greet them back and ask what's going on. One sentence. \"Hi, what can I help with?\" is enough. If a message arrives with nothing usable in it, say nothing more than a short \"Sorry, that came through blank — what's happening?\" and never repeat the same line twice in a row.\n\nAsk ONE question per message. Two only when they are genuinely the same question (\"which room, and how long has it been like that?\").\n\nAcknowledge before you ask. \"Ah, that's annoying — which bathroom is it?\" reads as human. Jumping straight to an interrogation does not.\n\nDo not repeat their problem back to them as a summary. They know what they said.\n\nVary how you phrase things. If you have asked something once and not got an answer, ask differently the second time, or let it go.\n\nWrite in British English. Residents come from a wide range of backgrounds and many are not native English speakers, so keep vocabulary simple and sentences short. Match their level of formality without mirroring slang.\n\n## What you are actually doing\n\nClassify silently as one of: routine question, issue report, complaint, emergency, follow-up. If it is none of these, say plainly that you only handle estate maintenance and support, and point them elsewhere. Do not read this list aloud.\n\n**Search the knowledge base first.** Use search_knowledge_base before creating any ticket. If it answers them, answer and stop. No ticket.\n\n**Offer a safe self-fix where one exists.** Resetting a tripped breaker, checking a socket switch, checking whether the heater is switched on. Offer it as a suggestion, not an instruction — \"worth checking the breaker first, is it tripped?\" If it solves it, record the outcome with log_self_resolution. Never suggest anything involving opening electrical panels, gas fittings, or working at height.\n\n**Check for duplicates.** Use check_open_tickets before creating a ticket. If one already covers this, give them the reference and where it stands.\n\n## What you need before a ticket exists\n\n- category: plumbing, electrical, appliance, structural, damp_mould, pest,\n  cleaning, security, internet, other. Use damp_mould for any report of damp,\n  condensation, black mould or a musty smell — never file those as structural\n  or other. Treat them as significant, not routine.\n- where in the unit\n- what is actually wrong, concretely\n- when it started\n- whether anything about it is dangerous\n- when someone can come in\n- a photo, or their explicit refusal\n\nCollect these through conversation, not a questionnaire. \"The AC is not working\" is not enough — you need the room, how long, and whether it powers on at all. Get there in three or four exchanges, not ten.\n\n**Order matters. Ask for the photo early.** Once you know what is broken and where it is, the very next thing you ask for is a picture — on its own, before you ask about timing or access. A photo tells the manager more than three follow-up questions do, and residents are most willing to send one right after describing the problem.\n\nAsk plainly: \"Could you send me a photo of it?\" Nothing more elaborate. Then wait for it before moving on to when it started and when someone can come in.\n\nYou never view images yourself. When a photo arrives you are told so in the message, in square brackets. If you see that note, the photo HAS been received and attached to the ticket — thank them and move on. Never say you cannot see it, never say it did not come through, and never ask for it again.\n\nAsk once only. If they decline, say they can't, or the photo doesn't arrive after you have moved on, accept it immediately, mark photo_status \"refused\", and carry on. Never ask a second time, and never make them feel awkward about it.\n\nSome things do not need a photo — a question about bin days, a noise complaint about a neighbour, a follow-up on an existing ticket. Only ask when there is something physical to look at.\n\nWhen a photo does arrive, you will see it described in the message as \"[Photo received. Stored at: ... ]\". Use that stored URL as photo_url when you create the ticket.\n\n## Emergencies\n\nImmediate danger means you stop interviewing. Safety instruction first — leave the unit, turn off the main, do not switch anything on — then create the ticket immediately with urgency \"emergency\" and whatever fields you have. Speed matters, completeness does not.\n\n## When to create a ticket\n\nOnly when all of these hold:\n- every field above is collected\n- the knowledge base did not already resolve it\n- no open duplicate exists\n- the request is genuinely in scope\n- you have a resident_id and unit_id, from the context above or returned by register_resident\n\nOut of scope, not a real estate issue, or they have gone quiet mid-conversation: no ticket. Explain, or wait.\n\n## Hard rules\n- Never promise a repair date, a time window, or a cost. You may say it has been passed to the manager.\n- Never close, cancel, or resolve a ticket. Only a person does that.\n- Never invent a knowledge base answer. If the search finds nothing, say you will check with the manager.\n\n## After creating a ticket\nGive them the reference and say what happens next, in one or two sentences. \"That's logged as RSA-20260911-0007. The manager has it and someone will be in touch about getting in.\" Then stop.\n\n## How this sounds in practice\n\nResident: hi\nYou: Hi, what's going on?\n\nResident: my ac is not working\nYou: Ah, sorry. Which room is it in?\nResident: the bedroom\nYou: Got it. Does it come on at all, or nothing when you press the remote?\nResident: it comes on but blowing warm air\nYou: Could you send me a photo of it?\nResident: [sends photo]\nYou: Thanks, that helps. How long has it been like that?\nResident: since Tuesday I think\nYou: And when would suit for someone to come in?\nResident: anytime after 4pm\nYou: Logged as RSA-20260911-0007. The manager has it and someone will be in touch about getting in after 4.\n\nResident: what's the wifi password for the building\nYou: It's EstateGuest2024. Let me know if it won't connect.\n\nResident: THERE IS WATER EVERYWHERE THE PIPE BURST\nYou: Turn off the main stopcock now if you can reach it safely, and don't touch any switches in that room. I've flagged this as an emergency — RSA-20260911-0008. Someone is being called now. Whereabouts in the flat is it coming from?\n\nResident: the lights in my living room have gone off\nYou: Worth checking the breaker box first — is any switch tripped down?\nResident: yes one had flipped, I've pushed it back up and they're on again\nYou: Good, glad that sorted it. Let me know if it trips again.\n\nNotice what these have in common: short, no menus, no summarising back, one question at a time, and the ticket reference arrives at the end of a normal sentence rather than in a formal confirmation block.\n\n## Photos: what you must never say\n\nYou have no way of knowing whether a photo failed to arrive. Never tell a\nresident that you cannot see their photo, that a photo did not come through,\nthat you are still waiting for one, or that you cannot open it. These are\nsystem problems and they are never the resident's to solve.\n\nBanned, in any wording:\n- \"I still can't see a photo\"\n- \"I didn't receive your photo\"\n- \"The photo didn't come through\"\n- \"Can you try sending it again?\"\n\nIf you asked for a photo and the next message is text rather than an image,\ntreat the photo as declined. Mark photo_status \"refused\", say nothing about\nit, and move straight on to the next question. Never ask a second time.\n\nIf a photo did arrive you will see \"[Photo received and stored at: ...]\" in\nthe message. If that text is not there, do not speculate about why.\n\n## The photo has to be usable\n\nA photo is only accepted when it actually shows the problem. Every picture is\nchecked, and you will see one of two notes.\n\n**PHOTO_ACCEPTED** — good. Use what it says, set photo_status to \"provided\",\nand carry on with the interview.\n\n**PHOTO_REJECTED** — the photo is not good enough for the manager to act on.\nThe note gives you the reason. You must:\n\n- Thank them, then say plainly what to photograph instead, using the reason.\n  \"Thanks — that one's a bit dark to make out the pipe. Could you take another\n  with the light on?\" or \"That's showing the whole room — could you get closer\n  to the damp patch itself?\"\n- Ask for exactly one more photo and wait for it.\n- NOT create the ticket. NOT set photo_status to \"provided\". The ticket waits\n  until there is a usable picture.\n- Keep it warm every time. People send unclear photos constantly and it is\n  never their fault. Never say the photo is wrong, bad, useless or invalid.\n  Never sound impatient, and vary the wording — repeating the same sentence is\n  what makes it feel like arguing with a machine.\n\nKeep asking until a photo is accepted. There is no limit — but there is one\nway out, and you must honour it immediately:\n\n**If the resident says they cannot send a photo** — no camera, no light, they\nare not home, they simply do not want to — accept that at once, set\nphoto_status to \"refused\", and continue to the ticket. Never press someone who\nhas said no, and never imply they must send one to get help. A refusal is\nalways allowed; a bad photo is not."
         }
       },
-      "id": "a19cbfab-7281-477c-8ec4-7c9ec5d278c0",
+      "id": "8187cf1d-b9d1-45bc-b071-6ba4264045a6",
       "name": "Support Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
       "position": [
-        -12272,
-        23600
-      ]
+        -10160,
+        38880
+      ],
+      "notesInFlow": false,
+      "notes": "Classification is silent. The category list is for routing and is never shown to a resident."
     },
     {
       "parameters": {
         "jsCode": "// Merge resident context, config and any photo into one agent input.\nconst env = $('Load Config').first().json;\nconst identity = $('Resolve Identity').first().json;\nconst rows = Array.isArray(identity) ? identity : [identity];\nconst row = rows[0];\n\n// --- Photo ---------------------------------------------------------------\n// The photo's existence must NOT depend on the vision call succeeding. If the\n// upload worked, the agent is told a photo arrived even when analysis failed.\nlet photoUrl = null;\ntry {\n  photoUrl = $('Build Vision Request').first().json.photo_url ?? null;\n} catch (e) { /* no photo this turn */ }\nif (!photoUrl) {\n  try {\n    const up = $('Upload to Storage').first().json;\n    const key = up?.Key ?? up?.key ?? up?.path ?? null;\n    if (key) photoUrl = `${env.supabase_url}/storage/v1/object/public/${key}`;\n  } catch (e) { /* no photo this turn */ }\n}\n\nlet vision = null;\ntry {\n  vision = $('Analyse Image').first().json?.choices?.[0]?.message?.content ?? null;\n} catch (e) { /* analysis failed or did not run */ }\n\n// Photo verdict. The vision model returns JSON: USABLE or REJECT with a\n// plain-English reason. A rejected photo is NOT accepted - the agent asks for\n// another one. The only way past this is an explicit refusal by the resident,\n// which is handled in the prompt, not here.\nlet imageNote = '';\nif (photoUrl) {\n  let v = null;\n  try { v = JSON.parse(vision); } catch (e) { v = null; }\n\n  if (v && v.verdict === 'REJECT') {\n    imageNote = `\\n\\n[PHOTO_REJECTED. Stored at: ${photoUrl}. `\n      + `Reason: ${v.reason || 'the photo does not clearly show the reported problem'}. `\n      + `This photo is NOT acceptable. Tell the resident warmly what to photograph `\n      + `instead, using that reason, and wait for another picture. Do NOT create a `\n      + `ticket yet. Do NOT set photo_status to \"provided\".]`;\n  } else if (v && v.verdict === 'USABLE') {\n    imageNote = `\\n\\n[PHOTO_ACCEPTED. Stored at: ${photoUrl}. `\n      + `What it shows: ${v.shows || 'the reported problem'}. `\n      + `Likely trade: ${v.trade || 'unknown'}. `\n      + `Safety risk visible: ${v.safety_risk ? 'YES' : 'no'}. `\n      + `Set photo_status to \"provided\" and use this URL as photo_url.]`;\n  } else if (vision) {\n    // Model replied but not in the expected shape. Treat as accepted rather\n    // than blocking the resident on a parsing problem of ours.\n    imageNote = `\\n\\n[PHOTO_ACCEPTED. Stored at: ${photoUrl}. Notes: ${vision}]`;\n  } else {\n    imageNote = `\\n\\n[PHOTO_ACCEPTED. Stored at: ${photoUrl}. It could not be `\n      + `analysed automatically, but it HAS been received. Do not tell the resident `\n      + `you cannot see it and do not ask for another one.]`;\n  }\n}\n\nconst resident = row?.residents ?? {};\nconst unit = resident?.units ?? {};\nconst isRegistered = Boolean(resident?.id);\n\nconst identityBlock = isRegistered\n  ? [\n      `Resident: ${resident.full_name}`,\n      `Unit: ${unit.label}`,\n      `Channel: ${env.channel}`,\n      '',\n      'This person is already registered. Never ask who they are or which unit they live in. You already know.',\n    ].join('\\n')\n  : [\n      `Channel: ${env.channel}`,\n      '',\n      'This person is NOT registered yet. Do not turn them away.',\n      'Before you can create a ticket you must register them:',\n      '1. Help with their question first if the knowledge base answers it. A knowledge base answer needs no registration.',\n      '2. If they are reporting an issue, ask in ONE message for their full name and their unit (for example \"Flat 12, Hawthorn House\").',\n      '3. Call list_units if they are unsure or give a unit label that is rejected, and offer them the real options.',\n      '4. Call register_resident with their name and unit label. It returns resident_id and unit_id.',\n      '5. Pass those two values to create_ticket when you eventually create the ticket.',\n      'Then carry on with the normal interview. Do not re-ask for their name once registered.',\n    ].join('\\n');\n\n// An image-only message has no text. Say so plainly rather than sending\n// \"(no text)\", which reads to the model as an empty or broken message.\nconst body = env.text && env.text.trim()\n  ? env.text\n  : (photoUrl ? '(the resident sent a photo with no caption)' : '(no text)');\n\nreturn [{\n  json: {\n    channel: env.channel,\n    sessionKey: `${env.channel}:${env.channel_user_id}`,\n    config: { estate_id: env.estate_id, estate_name: env.estate_name },\n    is_registered: isRegistered,\n    identity_block: identityBlock,\n    resident: {\n      id: resident.id ?? null,\n      full_name: resident.full_name ?? null,\n      unit_label: unit.label ?? null,\n      unit_id: unit.id ?? null,\n    },\n    channel_user_id: env.channel_user_id,\n    photo_url: photoUrl,\n    agentInput: body + imageNote,\n  }\n}];"
       },
-      "id": "79b4120f-6c23-4dec-9821-9a0373b84f43",
+      "id": "0b2286bf-cd83-485d-831d-5775e0153ebc",
       "name": "Compose Agent Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -12560,
-        24080
-      ]
+        -10608,
+        39520
+      ],
+      "notesInFlow": false,
+      "notes": "Writes the photo URL into the message text so it survives in conversation memory to the turn where the ticket is created."
     },
     {
       "parameters": {
@@ -814,15 +828,19 @@
         "jsonBody": "={{ $json.body }}",
         "options": {}
       },
-      "id": "3ec91000-7bac-4c2c-a9e7-f40baf89d7ad",
+      "id": "09eb3da9-a942-4de7-b70e-1c9a10094b5e",
       "name": "Analyse Image",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -12736,
-        23760
+        -10480,
+        38864
       ],
       "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "notesInFlow": false,
       "credentials": {
         "openAiApi": {
           "id": "J1OPI7fPFOOOKE9a",
@@ -830,9 +848,7 @@
         }
       },
       "onError": "continueRegularOutput",
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
+      "notes": "Returns a USABLE/REJECT verdict as JSON. A rejected photo is not accepted and the agent asks again."
     },
     {
       "parameters": {
@@ -845,14 +861,17 @@
         "inputDataFieldName": "data",
         "options": {}
       },
-      "id": "70f2c23a-81cf-4846-85c7-ab7904d1f445",
+      "id": "0a82dece-2b16-4339-b758-8c93f51b2f94",
       "name": "Upload to Storage",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -12928,
-        23760
+        -10848,
+        38864
       ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "credentials": {
         "httpHeaderAuth": {
           "id": "mEqBaPyc4KJkNlMr",
@@ -862,20 +881,17 @@
           "id": "dplSIfnzUxAIXt0r",
           "name": "Supabase account"
         }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
+      }
     },
     {
       "parameters": {},
-      "id": "112649ac-6985-468a-8824-bd9139b98a75",
+      "id": "5fe1371f-ff17-4713-b228-8366eaa77a39",
       "name": "Chat: Use Upload",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        -13424,
-        23920
+        -11424,
+        39184
       ]
     },
     {
@@ -884,24 +900,24 @@
         "fileId": "={{ $('Load Config').first().json.media[0].ref }}",
         "additionalFields": {}
       },
-      "id": "d3295d88-e098-4465-887b-85e6648d7591",
+      "id": "f5f3ce6a-6712-434c-a111-0c85f0e40b25",
       "name": "TG: Download File",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        -13424,
-        23760
+        -11424,
+        38880
       ],
       "webhookId": "6163f8b4-06e1-4e9f-924d-3806188515aa",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "credentials": {
         "telegramApi": {
           "id": "P33US4dfONS1KdwP",
           "name": "Telegram account"
         }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
+      }
     },
     {
       "parameters": {
@@ -916,23 +932,23 @@
           }
         }
       },
-      "id": "6101e061-447b-489d-abbf-44e4ce11fd44",
+      "id": "3e66c059-fbc3-4d30-95ad-2052c8d1d086",
       "name": "WA: Download Media",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -13200,
-        23616
+        -11104,
+        38560
       ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "credentials": {
         "whatsAppApi": {
           "id": "NwD3Ex2xzVJICIaD",
           "name": "WhatsApp account"
         }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
+      }
     },
     {
       "parameters": {
@@ -941,23 +957,23 @@
         "nodeCredentialType": "whatsAppApi",
         "options": {}
       },
-      "id": "4fddd701-0d72-412e-b096-862f733b15e2",
+      "id": "a7f5322d-c53d-424d-a1ba-2911f47a0dd4",
       "name": "WA: Get Media URL",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -13424,
-        23616
+        -11424,
+        38560
       ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "credentials": {
         "whatsAppApi": {
           "id": "NwD3Ex2xzVJICIaD",
           "name": "WhatsApp account"
         }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
+      }
     },
     {
       "parameters": {
@@ -1030,13 +1046,13 @@
         },
         "options": {}
       },
-      "id": "7871ed37-c897-4d46-bd7a-21e0a4c8e871",
+      "id": "a2bfd7b4-de6f-4bce-894f-8f15617fcc60",
       "name": "Image Source Router",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        -13680,
-        23712
+        -11744,
+        38864
       ]
     },
     {
@@ -1063,18 +1079,18 @@
         },
         "options": {}
       },
-      "id": "42ab99a9-4f2e-40a8-bbf1-a427cc8c3cd5",
+      "id": "3c4c5389-201b-4b08-bd24-d16f95808331",
       "name": "Has Image?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -13904,
-        24080
+        -11904,
+        39392
       ]
     },
     {
       "parameters": {
-        "url": "={{ $json.supabase_url }}/rest/v1/channel_identities",
+        "url": "={{ $('Load Config').first().json.supabase_url }}/rest/v1/channel_identities",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "supabaseApi",
         "sendQuery": true,
@@ -1086,11 +1102,11 @@
             },
             {
               "name": "channel",
-              "value": "=eq.{{ $json.channel }}"
+              "value": "=eq.{{ $('Load Config').first().json.channel }}"
             },
             {
               "name": "channel_user_id",
-              "value": "=eq.{{ $json.channel_user_id }}"
+              "value": "=eq.{{ $('Load Config').first().json.channel_user_id }}"
             },
             {
               "name": "is_active",
@@ -1100,24 +1116,26 @@
         },
         "options": {}
       },
-      "id": "72740239-6600-4892-ac37-63556d1050cc",
+      "id": "ee773931-0b9f-4f31-86d8-468c232ddff3",
       "name": "Resolve Identity",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -14336,
-        23744
+        -12080,
+        39392
       ],
       "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "notesInFlow": false,
       "credentials": {
         "supabaseApi": {
           "id": "dplSIfnzUxAIXt0r",
           "name": "Supabase account"
         }
       },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
+      "notes": "alwaysOutputData is required: Supabase returns [] for unknown senders and the branch would otherwise halt."
     },
     {
       "parameters": {
@@ -1126,19 +1144,19 @@
             {
               "id": "c1",
               "name": "estate_id",
-              "value": "=ceb74076-8ce6-4690-9b99-60e4a581286b",
+              "value": "={{ $('Settings').first().json.estate_id }}",
               "type": "string"
             },
             {
               "id": "c2",
               "name": "estate_name",
-              "value": "=Demo Estate",
+              "value": "={{ $('Settings').first().json.estate_name }}",
               "type": "string"
             },
             {
               "id": "c3",
               "name": "supabase_url",
-              "value": "=https://ybeuqmdywejvgssdigpl.supabase.co",
+              "value": "={{ $('Settings').first().json.supabase_url }}",
               "type": "string"
             },
             {
@@ -1174,60 +1192,64 @@
             {
               "id": "c9",
               "name": "wa_phone_number_id",
-              "value": "=1186453464550109",
+              "value": "={{ $('Settings').first().json.wa_phone_number_id }}",
               "type": "string"
             }
           ]
         },
         "options": {}
       },
-      "id": "be442dd3-aa25-421b-a27f-1333fd0905d6",
+      "id": "b0dfcb49-7cd5-4ff8-8dae-de3375f2ed4b",
       "name": "Load Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -14528,
-        23744
-      ]
+        -13072,
+        39424
+      ],
+      "notesInFlow": false,
+      "notes": "Merges Settings with the normalised message envelope. Everything downstream reads config from here via .first()."
     },
     {
       "parameters": {
         "jsCode": "// Channel adapter: n8n hosted chat -> normalised envelope\n// Persona demo links carry ?resident_ref=... so the grader is already a resident.\nconst body = $input.first().json;\n\nconst media = [];\nconst files = body.files ?? [];\nfor (const f of files) {\n  if ((f.mimeType || '').startsWith('image/')) {\n    media.push({ kind: 'image', ref: f.name, mime: f.mimeType });\n  }\n}\n\nreturn [{\n  json: {\n    channel: 'web_chat',\n    channel_user_id: body.metadata?.resident_ref || body.sessionId,\n    text: body.chatInput ?? '',\n    media,\n    provider_message_id: body.sessionId,\n    timestamp: new Date().toISOString(),\n  }\n}];"
       },
-      "id": "1963441d-74ab-4714-ae13-5a5f262ed338",
+      "id": "cfb8de55-8ef1-4b73-98e3-eae1345abd23",
       "name": "Adapt: Web Chat",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -14784,
-        24032
+        -14032,
+        39648
       ]
     },
     {
       "parameters": {
         "jsCode": "// Channel adapter: Telegram -> normalised envelope\nconst body = $input.first().json;\nconst msg = body.message ?? body.edited_message ?? body;\n\nconst media = [];\nif (Array.isArray(msg.photo) && msg.photo.length) {\n  // Telegram sends multiple sizes; the last entry is the largest\n  const largest = msg.photo[msg.photo.length - 1];\n  media.push({ kind: 'image', ref: largest.file_id, mime: 'image/jpeg' });\n}\n\nreturn [{\n  json: {\n    channel: 'telegram',\n    channel_user_id: String(msg.from?.id ?? ''),\n    text: msg.text ?? msg.caption ?? '',\n    media,\n    provider_message_id: String(msg.message_id ?? ''),\n    timestamp: msg.date\n      ? new Date(msg.date * 1000).toISOString()\n      : new Date().toISOString(),\n  }\n}];"
       },
-      "id": "741f6a37-d05a-49b1-ba3b-7a61ed689e73",
+      "id": "2e64b209-e22c-4748-bfad-db2725df6f8d",
       "name": "Adapt: Telegram",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -14784,
-        23760
+        -14032,
+        39392
       ]
     },
     {
       "parameters": {
         "jsCode": "// Channel adapter: WhatsApp Business Cloud -> normalised envelope\nconst body = $input.first().json;\nconst value = body?.entry?.[0]?.changes?.[0]?.value ?? body;\n\n// The \"messages\" webhook field also delivers delivery receipts (sent /\n// delivered / read) and errors. Those are not resident messages. If we let\n// them through, every reply we send generates more of them and the workflow\n// answers itself forever. Drop anything that is not an inbound message.\nif (value?.statuses || !Array.isArray(value?.messages) || value.messages.length === 0) {\n  return [];\n}\n\nconst msg = value.messages[0];\n\n// Ignore message types we cannot handle rather than replying to them blankly.\nconst supported = ['text', 'image'];\nif (msg.type && !supported.includes(msg.type)) {\n  return [];\n}\n\nconst media = [];\nif (msg.image?.id) {\n  media.push({ kind: 'image', ref: msg.image.id, mime: msg.image.mime_type || 'image/jpeg' });\n}\n\nconst text = msg.text?.body ?? msg.image?.caption ?? '';\nif (!text && media.length === 0) {\n  return [];\n}\n\nreturn [{\n  json: {\n    channel: 'whatsapp',\n    channel_user_id: msg.from || value?.contacts?.[0]?.wa_id || null,\n    text,\n    media,\n    provider_message_id: msg.id ?? null,\n    timestamp: msg.timestamp\n      ? new Date(Number(msg.timestamp) * 1000).toISOString()\n      : new Date().toISOString(),\n  }\n}];"
       },
-      "id": "f549ca6c-fb65-4aef-bc0f-05294c439e09",
+      "id": "cd954f4b-ad28-442a-98ee-f3bb0646be26",
       "name": "Adapt: WhatsApp",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -14784,
-        23568
-      ]
+        -14016,
+        39136
+      ],
+      "notesInFlow": false,
+      "notes": "Returns [] for status callbacks (sent/delivered/read). Without this the bot replies to its own replies."
     },
     {
       "parameters": {
@@ -1241,13 +1263,13 @@
           "responseMode": "lastNode"
         }
       },
-      "id": "950fa863-b43e-4b1a-8f23-5e5f9f53d903",
+      "id": "e69761e5-8e34-41d1-8e06-53235e569c1e",
       "name": "Chat Trigger",
       "type": "@n8n/n8n-nodes-langchain.chatTrigger",
       "typeVersion": 1.1,
       "position": [
-        -15136,
-        24032
+        -14688,
+        39696
       ],
       "webhookId": "REPLACE_CHAT_WEBHOOK_ID"
     },
@@ -1258,13 +1280,13 @@
         ],
         "additionalFields": {}
       },
-      "id": "5059ee17-ab35-4b79-8ad0-16c81e7db6cb",
+      "id": "1af6a73c-0861-4e36-8d8f-1507e4d5beee",
       "name": "Telegram Trigger",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.2,
       "position": [
-        -15120,
-        23760
+        -14688,
+        39392
       ],
       "webhookId": "935aa49e-54ff-4198-8dab-4f8378c1ed68",
       "credentials": {
@@ -1281,13 +1303,13 @@
         ],
         "options": {}
       },
-      "id": "ebd5736c-a5ec-40de-ba09-098dbbf58409",
+      "id": "a16ab013-588a-4c92-897c-b735ddd0bc9e",
       "name": "WhatsApp Trigger",
       "type": "n8n-nodes-base.whatsAppTrigger",
       "typeVersion": 1,
       "position": [
-        -15104,
-        23568
+        -14704,
+        39136
       ],
       "webhookId": "8098db55-aaf4-411a-a1e0-fdb3ee0353c7",
       "credentials": {
@@ -1296,6 +1318,256 @@
           "name": "WhatsApp OAuth account"
         }
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "t2",
+              "leftValue": "={{ $('Load Config').first().json.channel }}",
+              "rightValue": "telegram",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a42230b6-58c8-4da6-a935-b43a0c590157",
+      "name": "Is Telegram?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -12688,
+        39664
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendChatAction",
+        "chatId": "={{ $('Load Config').first().json.channel_user_id }}"
+      },
+      "id": "7c7721a5-0338-4227-b9c2-02f5b7783a1d",
+      "name": "TG: Show Typing",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -12576,
+        39424
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "alwaysOutputData": true,
+      "webhookId": "ff59b635-9926-4d4b-89b3-2e1f483fb59d",
+      "notesInFlow": false,
+      "credentials": {
+        "telegramApi": {
+          "id": "P33US4dfONS1KdwP",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Telegram caps this at 5s, so a slow agent reply can outlast it. Known limitation."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s1",
+              "name": "supabase_url",
+              "type": "string",
+              "value": "https://ybeuqmdywejvgssdigpl.supabase.co"
+            },
+            {
+              "id": "s2",
+              "name": "estate_id",
+              "type": "string",
+              "value": "ceb74076-8ce6-4690-9b99-60e4a581286b"
+            },
+            {
+              "id": "s3",
+              "name": "estate_name",
+              "type": "string",
+              "value": "Hawthorn Court"
+            },
+            {
+              "id": "s4",
+              "name": "wa_phone_number_id",
+              "type": "string",
+              "value": "1186453464550109"
+            },
+            {
+              "id": "s5",
+              "name": "graph_api_version",
+              "type": "string",
+              "value": "v21.0"
+            },
+            {
+              "id": "s6",
+              "name": "back_office_url",
+              "type": "string",
+              "value": "https://backoffice-resident-ai.vercel.app"
+            },
+            {
+              "id": "s7",
+              "name": "storage_bucket",
+              "type": "string",
+              "value": "ticket-photos"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "ec7a7df1-6bb5-4796-b5ac-00154ac9788a",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -13376,
+        39408
+      ],
+      "notesInFlow": false,
+      "notes": "Every environment-specific value lives here and nowhere else."
+    },
+    {
+      "parameters": {
+        "content": "## 1 · Three channels, one core\n\nWhatsApp is production. Telegram proves the core is channel-agnostic. The\nhosted chat exists so anyone can try the system without a phone number.\n\nEach adapter normalises its provider's payload into the same envelope:\n`{ channel, channel_user_id, text, media[], timestamp }`. Nothing downstream\nknows or cares which channel a message came from.\n\n**Adapt: WhatsApp returns `[]` for delivery receipts.** Meta's `messages`\nwebhook field also delivers sent/delivered/read events. Without that filter\nevery outbound reply generates a new inbound event and the bot answers itself\nforever. This was found the hard way.",
+        "height": 1580,
+        "width": 512,
+        "color": 4
+      },
+      "id": "31086405-cdb0-4160-8cc9-d07ca6230ffc",
+      "name": "Note: channels",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -14848,
+        38576
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2 · One place for configuration\n\nEstate, Supabase project, WhatsApp number and API version all live in\n**Settings**. Nothing else in the workflow hardcodes an environment value.\n\nOperational settings a manager should change  alert address, routing,\nconfidence threshold — belong in the Supabase `config` table, not here.",
+        "height": 730,
+        "width": 432,
+        "color": 3
+      },
+      "id": "147bea40-3c0f-4f55-a3e5-a786477cdc73",
+      "name": "Note: settings",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -13552,
+        38832
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3 · Typing indicators\n\nSequential, not parallel. A dead-end branch works, but n8n defers it until the\nmain chain finishes, so the indicator arrived *after* the reply.\n\nBoth nodes continue on error. An indicator must never be able to stop a\nresident getting an answer. WhatsApp shows for 25s, Telegram for 5s.",
+        "height": 302,
+        "width": 600,
+        "color": 5
+      },
+      "id": "326e8bdf-5828-424b-b9e5-f51b47b4829b",
+      "name": "Note: typing",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -12896,
+        39856
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4 · Open access by design\n\nUnknown senders are not turned away  they are registered in conversation.\nThe unit is a required *field*, not a permission gate.\n\n`alwaysOutputData` is on: Supabase returns `[]` for an unknown sender, and\nwithout it the branch halts with no output and the conversation dies.\n\nSelf-registered residents are flagged so the back office shows them as\nunverified. Production would verify against the estate's resident roll.",
+        "height": 434,
+        "width": 508,
+        "color": 6
+      },
+      "id": "f35ced4d-9601-4754-b987-9fa40ed43a90",
+      "name": "Note: identity",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -12064,
+        39840
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 5 · Photo pipeline\n\nDownload → Storage → vision check. The URL is sent to OpenAI rather than\nbase64: `$binary.data.data` is only populated when n8n keeps binary in memory,\nand is empty in filesystem mode.\n\n**The vision model returns a verdict, not a description.** A photo is only\naccepted if a manager could act on it without asking follow-up questions. Too\ndark, too far, too close or unrelated is rejected and the agent asks again.\n\nThe stored URL is written into the agent-visible message text because the\nphoto usually arrives in a *different execution* from ticket creation — the\nconversation memory is what carries it across.",
+        "height": 260,
+        "width": 1100,
+        "color": 7
+      },
+      "id": "8f17aa05-073e-4f2b-9f4a-a105fddfad20",
+      "name": "Note: photo",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -11488,
+        38256
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 6 · The gate\n\nNothing is written as a ticket during the interview. `create_ticket` is a tool\nthe agent calls only when the required fields are complete.\n\nConversations resolved from the knowledge base are **successes**, recorded via\n`log_self_resolution`. A system that turns every answerable question into work\nfor the manager has failed.\n\nThe agent creates tickets. It never closes them. That is enforced by a\ndatabase trigger, not by the prompt.",
+        "height": 454,
+        "width": 532,
+        "color": 2
+      },
+      "id": "1ce28d58-732b-419b-a53b-dd52144bbbfb",
+      "name": "Note: gate",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -10320,
+        40112
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 7 · Expression conventions\n\nEvery reference to context uses `$('Node').first()`, never `$json` or\n`$('Node').item`. Three separate outages came from this:\n\n- `.item` resolves through n8n's paired-item chain, which **agent tool calls\n  sit outside** `estate_id` arrived null in the ticket sub-workflow.\n- `$json` means \"whatever ran last\", so inserting the typing nodes silently\n  broke `supabase_url` in Resolve Identity.\n\nLoad Config holds one item per execution, so `.first()` is always correct and\nsurvives reordering.",
+        "height": 428,
+        "width": 516
+      },
+      "id": "0e0b3538-a822-4079-9528-f6fb7776bf30",
+      "name": "Note: conventions",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -9888,
+        38496
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 8 · Failure handling\n\nEvery network node retries 3× with a 2s gap.\n\nLogging and notification nodes. Log Message, Show Typing, Email Manager \ncontinue on error. A gateway timeout on an audit write must not cost the\nresident their reply.\n\nEverything load-bearing still fails loudly. A ticket insert that quietly\nfailed would tell someone their problem was logged when it wasn't.",
+        "height": 488,
+        "width": 460,
+        "color": 3
+      },
+      "id": "5d0e5f88-7949-4185-be22-a1f7d94c645f",
+      "name": "Note: reliability",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -9408,
+        39648
+      ]
     }
   ],
   "pinData": {},
@@ -1307,16 +1579,11 @@
             "node": "Show Typing",
             "type": "main",
             "index": 0
-          },
-          {
-            "node": "Resolve Identity",
-            "type": "main",
-            "index": 0
           }
         ],
         [
           {
-            "node": "Resolve Identity",
+            "node": "Is Telegram?",
             "type": "main",
             "index": 0
           }
@@ -1615,7 +1882,7 @@
       "main": [
         [
           {
-            "node": "Load Config",
+            "node": "Settings",
             "type": "main",
             "index": 0
           }
@@ -1626,7 +1893,7 @@
       "main": [
         [
           {
-            "node": "Load Config",
+            "node": "Settings",
             "type": "main",
             "index": 0
           }
@@ -1637,7 +1904,7 @@
       "main": [
         [
           {
-            "node": "Load Config",
+            "node": "Settings",
             "type": "main",
             "index": 0
           }
@@ -1687,6 +1954,57 @@
           }
         ]
       ]
+    },
+    "Is Telegram?": {
+      "main": [
+        [
+          {
+            "node": "TG: Show Typing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Resolve Identity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Show Typing": {
+      "main": [
+        [
+          {
+            "node": "Resolve Identity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TG: Show Typing": {
+      "main": [
+        [
+          {
+            "node": "Resolve Identity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Load Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -1695,7 +2013,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "fd2890ee-2389-4723-ab8c-d64769e4ddf0",
+  "versionId": "66ac9fe0-aa80-4e60-b107-dec83db095e0",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "a0c06549d153afe2a900cc76ee6cc621af965adffffc11bb8c75c33481e57650"
