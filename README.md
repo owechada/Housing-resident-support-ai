@@ -106,16 +106,18 @@ took one adapter and one send node.
 
 ```
 db/schema.sql   --  tables, human-close trigger, register_resident()
-db/seed.sql   --  estate, units, residents, 15 knowledge base entries
+db/seed.sql     --  estate, units, residents, knowledge base entries
+db/rls.sql      --  row level security
 ```
 
-Run and create a public storage bucket named `ticket-photos` on supabase project.
+Then create a public storage bucket named `ticket-photos` on the Supabase project.
+
 
 **2. Workflows.** Import sub-workflow first:
 
 ```
-workflows/Resident_Support_AI_-_Create_Ticket.json
-workflows/Resident_Support_AI_-_Core.json
+n8n-workflows/resident-support-ai-create-ticket.json
+n8n-workflows/resident-support-ai-core.json
 ```
 
 Attach credentials where flagged: Supabase, OpenAI, WhatsApp, Telegram,
@@ -132,12 +134,8 @@ appears in the back office within seconds.
 
 ## Testing
 
-Twelve labelled cases in `eval/test-cases.md`, plus six deliberate breaks.
-
-```sql
-select * from reset_all_test_data();               -- before a full run
-select * from reset_tester('whatsapp','<number>'); -- between cases
-```
+Thirteen labelled cases in `evaluation-pack/02-test-cases.md`, with results in
+`evaluation-pack/03-results-from-test-cases.md`.
 
 Headline metric: **field completeness rate** — tickets carrying every field a
 manager needs to act without asking anything further.
@@ -151,8 +149,11 @@ answers, full interview with photo verification, ticket creation with
 confidence scoring and review queue, manager email alerts, retries on every
 network call.
 
-In progress: back office, manager-triggered status updates and the reopen
-path, the twelve-case evaluation run.
+Also running: the back office — queue, ticket detail, conversations, knowledge
+base and summary, deployed and linked at the top of this page.
+
+In progress: manager-triggered status updates and the reopen path, and the
+thirteen-case evaluation run.
 
 ## Known limits
 
@@ -167,9 +168,9 @@ path, the twelve-case evaluation run.
 ## Repo
 
 ```
-workflows/    n8n exports
-db/           schema, seed, RLS
-back-office/  manager interface
-eval/         test cases, reset helpers, results
-docs/         discovery, architecture, runbook, case study
+n8n-workflows/    n8n exports — core + ticket sub-workflow
+db/               schema, seed, row level security
+back-office/      manager interface (Next.js)
+evaluation-pack/  case study, test cases, results, iteration plan
+docs/             runbook, images
 ```

@@ -126,3 +126,10 @@
 **Result:** PASS 
  
 <img src="img/tc-13.PNG" width="200"> 
+
+
+**Admin Email notifications**
+
+<img src="img/admin1.png" width="500"> 
+
+<img src="img/admin2.PNG" width="500"> 
