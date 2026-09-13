@@ -1,29 +1,46 @@
-# Resident Support AI
-
+# Housing Resident Support AI
+ 
 ## The problem
-
-A resident's boiler breaks. They ring the estate office, wait on hold, and
-explain it to whoever picks up. After five, or at the weekend, nobody picks up
-and the report is lost.
-
-What gets written down is rarely enough to act on. "Boiler not working, Flat 12"
-tells a contractor nothing — no onset, no access window, no photo. So the
-manager rings back. Sometimes twice. Days pass, almost none of it spent on the
-repair.
-
-## What this is
-
-A complete intake system for estate repairs. Not a chatbot on a mailbox.
-
-The resident messages on WhatsApp or Telegram. The agent identifies them and
-their flat, answers routine questions outright, and for anything needing repair
-runs the interview the manager would otherwise run — what, where, since when,
-access, and a photo it verifies is usable. A structured, routed ticket lands in
-the back office. The manager takes it from there.
-
-Updates come back on the same thread. No portal, no login. The resident can
-reply to dispute one, which reopens the ticket.
-
+ 
+Something breaks in a resident's flat, for instance say the boiler stops working. They ring
+the estate office. If it's past 5pm on a friday, or the weekend, or the one person who
+handles repairs is already on a call, nobody picks up. The report just doesn't
+happen.
+ 
+If someone does answer, they write down what they heard: "boiler not working,
+Flat 12." That's not enough to send anyone out. You'd need to know how long it's
+been off, whether there's still hot water, when the resident can let an engineer
+in, and ideally see a photo. None of that was asked.
+ 
+So the manager rings the resident back to ask. Often more than once. Between the
+resident noticing the problem and anyone being in a position to fix it, days can
+pass and almost none of that time is the repair itself. It's just the
+back-and-forth to collect five or six facts the resident already knew when they
+first picked up the phone.
+ 
+## What this does
+ 
+It moves that interview to the moment the resident reports the problem, and does
+it for them.
+ 
+The resident sends a WhatsApp or Telegram message, like they'd message anyone.
+The agent already knows who they are and which flat they're in, so it doesn't
+ask. If it's a question it can answer bin day, parking permits, heating hours
+ it just answers, and no ticket is created.
+ 
+If something needs fixing, it asks the questions the manager would have asked:
+what's wrong, where in the flat, how long it's been like that, when someone can
+come round, and a photo. It checks the photo actually shows the problem if
+it's too dark or shows the wrong thing, it says so kindly and asks for another.
+ 
+By the end of that conversation there's a proper ticket in the back office:
+categorised, prioritised, with every field filled in and the photo attached. The
+manager opens it and can act immediately. No callback.
+ 
+When they update it, the resident hears back in the same chat. There's no portal
+to log into and no password to forget. And if the resident replies to say it
+isn't actually fixed, that reopens the ticket.
+ 
 ---
 
 ## Try it out
