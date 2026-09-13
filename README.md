@@ -50,6 +50,9 @@ isn't actually fixed, that reopens the ticket.
 | <img src="docs/img/qr-whatsapp.png" width="180" alt="Chat on WhatsApp"> | <img src="docs/img/qr-telegram.png" width="180" alt="Chat on Telegram"> |
 | [wa.me](https://wa.me/2349110574691?text=Hi) | [t.me](https://t.me/atlantizzz_bot) |
 
+
+<img src="evaluation-pack/img/tc-02.PNG" width="200">
+
 Say something is broken and answer what it asks.
 
 
