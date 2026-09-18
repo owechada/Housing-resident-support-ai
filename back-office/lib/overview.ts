@@ -1,3 +1,4 @@
+import { needsAttention } from "@/lib/attention";
 import type { TicketCategory, TicketStatus } from "@/lib/database.types";
 import { missingFieldNames } from "@/lib/labels";
 import type { createClient } from "@/lib/supabase/server";
@@ -106,18 +107,13 @@ export async function fetchOverview(supabase: Client): Promise<Overview> {
     byCategory.set(ticket.category, entry);
   }
 
-  const needsAttention = tickets.filter(
-    (ticket) =>
-      ticket.urgency === "emergency" ||
-      ticket.status === "needs_review" ||
-      ticket.status === "reopened",
-  ).length;
+  const attentionCount = tickets.filter(needsAttention).length;
 
   return {
     truncated: total >= TICKET_SCAN_LIMIT || events.length >= EVENT_SCAN_LIMIT,
     totalTickets: total,
     openTickets: unsettled.length,
-    needsAttention,
+    needsAttention: attentionCount,
     fieldCompleteness: rate(complete, total),
     selfResolution: rate(selfResolutions, selfResolutions + total),
     reopened: rate(everReopened.size, total),

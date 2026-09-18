@@ -3,9 +3,16 @@ import Link from "next/link";
 import { ImageOffIcon } from "lucide-react";
 
 import { StatusBadge, UrgencyBadge } from "@/components/ticket-badges";
+import { attentionReason, type AttentionReason } from "@/lib/attention";
 import { CATEGORY_LABELS, absoluteTime, relativeAge } from "@/lib/labels";
 import type { QueueTicket } from "@/lib/queue";
 import { cn } from "@/lib/utils";
+
+const ATTENTION_ACCENTS: Record<AttentionReason, string> = {
+  emergency: "border-l-red-600 bg-red-50/60",
+  review: "border-l-amber-500 bg-amber-50/50",
+  reopened: "border-l-violet-500 bg-violet-50/50",
+};
 
 /**
  * The accent stripe is the thing a manager reads first while scanning, so it
@@ -13,9 +20,8 @@ import { cn } from "@/lib/utils";
  * started on it.
  */
 function accentFor(ticket: QueueTicket): string {
-  if (ticket.urgency === "emergency") return "border-l-red-600 bg-red-50/60";
-  if (ticket.status === "needs_review") return "border-l-amber-500 bg-amber-50/50";
-  if (ticket.status === "reopened") return "border-l-violet-500 bg-violet-50/50";
+  const reason = attentionReason(ticket);
+  if (reason) return ATTENTION_ACCENTS[reason];
   if (ticket.status === "closed" || ticket.status === "cancelled") {
     return "border-l-transparent";
   }

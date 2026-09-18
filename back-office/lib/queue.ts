@@ -6,6 +6,7 @@ import {
   type TicketUrgency,
   type PhotoStatus,
 } from "@/lib/database.types";
+import { attentionFilter } from "@/lib/attention";
 import type { createClient } from "@/lib/supabase/server";
 
 /**
@@ -96,11 +97,7 @@ export async function fetchQueue(
 
   if (filters.status) query = query.eq("status", filters.status);
   if (filters.urgency) query = query.eq("urgency", filters.urgency);
-  if (filters.attention) {
-    query = query.or(
-      "urgency.eq.emergency,status.eq.needs_review,status.eq.reopened",
-    );
-  }
+  if (filters.attention) query = query.or(attentionFilter());
 
   const { data, error } = await query;
 
@@ -112,16 +109,4 @@ export async function fetchQueue(
   }
 
   return data ?? [];
-}
-
-/**
- * Rows the manager should not have to hunt for. Kept in one place so the queue
- * highlight and the "needs attention" filter cannot drift apart.
- */
-export function needsAttention(ticket: QueueTicket): boolean {
-  return (
-    ticket.urgency === "emergency" ||
-    ticket.status === "needs_review" ||
-    ticket.status === "reopened"
-  );
 }
